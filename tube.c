@@ -34,7 +34,7 @@ make_tube(const char *name)
     t->buried.prev = t->buried.next = &t->buried;
     ms_init(&t->waiting, NULL, NULL);
 
-    t->stat = (struct stats) {0, 0, 0, 0, 0};
+    t->stat = (struct stats) {0, 0, 0, 0, 0, 0};
     t->using_ct = t->watching_ct = 0;
     t->deadline_at = t->pause = 0;
 

@@ -138,6 +138,7 @@ size_t job_data_size_limit = JOB_DATA_SIZE_LIMIT_DEFAULT;
     "current-jobs-reserved: %u\n" \
     "current-jobs-delayed: %u\n" \
     "current-jobs-buried: %u\n" \
+    "current-jobs-size: %u\n" \
     "cmd-put: %" PRIu64 "\n" \
     "cmd-peek: %" PRIu64 "\n" \
     "cmd-peek-ready: %" PRIu64 "\n" \
@@ -188,6 +189,7 @@ size_t job_data_size_limit = JOB_DATA_SIZE_LIMIT_DEFAULT;
     "current-jobs-reserved: %u\n" \
     "current-jobs-delayed: %u\n" \
     "current-jobs-buried: %u\n" \
+    "current-jobs-size: %u\n" \
     "total-jobs: %" PRIu64 "\n" \
     "current-using: %u\n" \
     "current-watching: %u\n" \
@@ -221,7 +223,7 @@ size_t job_data_size_limit = JOB_DATA_SIZE_LIMIT_DEFAULT;
 static char bucket[BUCKET_BUF_SIZE];
 
 static uint ready_ct = 0;
-static struct stats global_stat = {0, 0, 0, 0, 0};
+static struct stats global_stat = {0, 0, 0, 0, 0, 0};
 
 static tube default_tube;
 
@@ -818,6 +820,9 @@ enqueue_incoming_job(conn c)
     global_stat.total_jobs_ct++;
     j->tube->stat.total_jobs_ct++;
 
+    global_stat.data_size += j->r.body_size;
+    j->tube->stat.data_size += j->r.body_size;
+
     if (r == 1) return reply_line(c, STATE_SENDWORD, MSG_INSERTED_FMT, j->r.id);
 
     /* out of memory trying to grow the queue, so it gets buried */
@@ -855,6 +860,7 @@ fmt_stats(char *buf, size_t size, void *x)
             global_stat.reserved_ct,
             get_delayed_job_ct(),
             global_stat.buried_ct,
+            global_stat.data_size,
             op_ct[OP_PUT],
             op_ct[OP_PEEKJOB],
             op_ct[OP_PEEK_READY],
@@ -1085,6 +1091,7 @@ fmt_stats_tube(char *buf, size_t size, tube t)
             t->stat.reserved_ct,
             t->delay.len,
             t->stat.buried_ct,
+            t->stat.data_size,
             t->stat.total_jobs_ct,
             t->using_ct,
             t->watching_ct,
@@ -1305,6 +1312,8 @@ dispatch_cmd(conn c)
         if (!j) return reply(c, MSG_NOTFOUND, MSG_NOTFOUND_LEN, STATE_SENDWORD);
 
         j->tube->stat.total_delete_ct++;
+        global_stat.data_size -= j->r.body_size;
+        j->tube->stat.data_size -= j->r.body_size;
 
         j->r.state = Invalid;
         r = walwrite(&c->srv->wal, j);
