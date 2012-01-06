@@ -1,3 +1,10 @@
+= Branch intention =
+Main intention of this branch is to use jemalloc as a allocator for jobs.
+
+Call the following command in advance, it builds the jemalloc dependency
+     make deps
+
+= Readme =
 This is beanstalkd, a fast, general-purpose work queue.
 See http://kr.github.com/beanstalkd/ for general info.
 
