@@ -2,7 +2,7 @@ all: $(TARG)
 .PHONY: all
 
 $(TARG): $(OFILES) $(MOFILE)
-	$(LINK.o) -o $@ $^ $(LDLIBS)
+	$(LINK.o) -o $@ $^ $(LDLIBS) deps/jemalloc/lib/libjemalloc.a -pthread -ldl
 
 install: $(BINDIR) $(BINDIR)/$(TARG)
 .PHONY: install

@@ -38,6 +38,7 @@ CLEANFILES=\
 
 include mk/cmd
 include mk/tst
+include mk/deps
 
 vers.c:
 	mk/verc.sh >vers.c
