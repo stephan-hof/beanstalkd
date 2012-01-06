@@ -1,0 +1,69 @@
+The code is not production ready yet. Only synthetic load tests in the lab were done.
+
+The main idea is to create size classes, where each allocation needs to fit into
+one particular class.
+
+Currently there are seven static classes for small allocations
+with the following size (in bytes)
+0-16]
+16-32]
+32-64]
+64-128]
+128-256]
+256-512]
+512-1024]
+
+After that fixed set, classes with 1k size are build up to 128k
+1-2k]
+2-3k]
+...
+45-46k]
+127-128k]
+
+Each size class has many blocks which have at least 1MB size.
+Each block is allocated on demand via mmap.
+
+Each block is split into pages of size 4096 bytes, every page pointer is stored in a radix
+tree. So on a 'free' it is possible to find the corresponding block and its
+size_class. Knowing how many data of a block is used, makes it possible to free
+a block.
+
+TODO:
+ * bring back the 'initialize_jobs' to allocate bmalloc handler at startup
+ * evaluate the -z parameter
+ * bulletproof error checks
+ * do tests with enabled binlog
+ * One major speed improvment is to get rid of the radix tree and return the
+   pointer to the block also back to the caller. This makes the allocator less
+   generic, because the job-struct needs to keep a second pointer.
+   Free needs also a second pointer to the block.
+ * One speed improment is to cache the Job structures itself. So we dont need to
+   beg glibc all the time for freeing/mallocing job structures
+ * Add a parameter to configure maximum memory to used, after that amount raise
+   'out of memory exceptions. This makes sense if the consumer is dead.
+   What memory should be counted ?
+   1) Job data only as requested by the clients. So do *not* count the internal
+      overhead in bmalloc nor count the memory used for the Job struct itself.
+   2) Job data requested by the clients + internal overhead in bmalloc.
+      Do *not* count the memory used for the Job struct itself.
+   3) Job data requested by the clients + internal overhead in bmalloc + memory
+      used by the Job struct itself
+
+ * If there is a parameter for 'maximum memory to use', configure a policy what
+   to do if the amount is reached.
+   1) Return an error back to the client
+   2) Drop older jobs until enough memory is there
+ * Do benchmarks with JobSize > 2MB
+ * Give Jobs a lifetime how long they could stay inside the Queue.
+   If the lifetime (TimeToLive) is reached remove it from the Queue
+ * bmalloc can still suffer fragmentation if some jobs stay very long in the
+   Queue. In the worst case each of this 'very long Jobs' can prevent a Block
+   from beeing freed. Add already some bmalloc metainformation to the 'server stats'
+   Build a heuristic which defragments the memory.
+   When to defragment
+   1) The ratio between number of blocks and used memory is too high.
+      Dont check for fragmentation all the time, add  a counter/timer when its
+      time to check for fragmentation      
+   Howto defragment
+   1) Create a new bmalloc handler and iterate over all jobs to use the new
+      handler. Free the old handler then
