@@ -3,6 +3,9 @@
 #include <string.h>
 #include "dat.h"
 
+#define JEMALLOC_MANGLE
+#include "deps/jemalloc/include/jemalloc/jemalloc.h"
+
 static uint64 next_id = 1;
 
 static int cur_prime = 0;
@@ -47,7 +50,7 @@ rehash()
     if (hash_table_was_oom) return;
 
     all_jobs_cap = primes[++cur_prime];
-    all_jobs = calloc(all_jobs_cap, sizeof(job));
+    all_jobs = je_calloc(all_jobs_cap, sizeof(job));
     if (!all_jobs) {
         twarnx("Failed to allocate %d new hash buckets", all_jobs_cap);
         hash_table_was_oom = 1;
@@ -68,7 +71,7 @@ rehash()
         }
     }
     if (old != all_jobs_init) {
-        free(old);
+        je_free(old);
     }
 }
 
@@ -88,7 +91,7 @@ allocate_job(int body_size)
 {
     job j;
 
-    j = malloc(sizeof(struct job) + body_size);
+    j = je_malloc(sizeof(struct job) + body_size);
     if (!j) return twarnx("OOM"), (job) 0;
 
     memset(j, 0, sizeof(struct job));
@@ -145,7 +148,7 @@ job_free(job j)
         if (j->r.state != Copy) job_hash_free(j);
     }
 
-    free(j);
+    je_free(j);
 }
 
 void
@@ -179,7 +182,7 @@ job_copy(job j)
 
     if (!j) return NULL;
 
-    n = malloc(sizeof(struct job) + j->r.body_size);
+    n = je_malloc(sizeof(struct job) + j->r.body_size);
     if (!n) return twarnx("OOM"), (job) 0;
 
     memcpy(n, j, sizeof(struct job) + j->r.body_size);
